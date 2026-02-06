@@ -4,6 +4,7 @@ const initialFormState = {
   name: '',
   email: '',
   message: '',
+  'bot-field': '', // honeypot for Netlify (leave empty, hidden from user)
 }
 
 export default function Contact() {
@@ -47,17 +48,33 @@ export default function Contact() {
     setIsSubmitting(true)
 
     try {
-      // Simulate sending – replace with real API call when ready
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const body = new URLSearchParams({
+        'form-name': 'contact',
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        message: formData.message.trim(),
+        'bot-field': formData['bot-field'] || '',
+      }).toString()
+
+      const res = await fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      })
+
+      if (!res.ok) throw new Error('Submission failed')
       setStatusMessage({
         type: 'success',
         text: 'Thank you! Your message has been sent.',
       })
       setFormData(initialFormState)
     } catch (error) {
+      const isLocal = typeof window !== 'undefined' && /localhost|127\.0\.0\.1/.test(window.location.hostname)
       setStatusMessage({
         type: 'error',
-        text: 'Failed to send message. Please try again later.',
+        text: isLocal
+          ? 'This form only works when the site is deployed to Netlify. Deploy your site and submit from the live URL.'
+          : 'Failed to send message. Please try again later.',
       })
     } finally {
       setIsSubmitting(false)
@@ -65,7 +82,7 @@ export default function Contact() {
   }
 
   return (
-    <section id="contact" className="py-16 md:py-24 bg-white">
+    <section id="contact" className="py-16 md:py-24 bg-slate-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
@@ -83,7 +100,27 @@ export default function Contact() {
               Send a Message
             </h3>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form
+              name="contact"
+              method="POST"
+              data-netlify="true"
+              data-netlify-honeypot="bot-field"
+              onSubmit={handleSubmit}
+              className="space-y-5"
+            >
+              <input type="hidden" name="form-name" value="contact" />
+              {/* Honeypot: hidden from users, bots fill it; Netlify ignores submissions that set it */}
+              <p className="absolute -left-[9999px] w-1 h-1 overflow-hidden" aria-hidden="true">
+                <label htmlFor="contact-bot">Don’t fill this out</label>
+                <input
+                  id="contact-bot"
+                  name="bot-field"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={formData['bot-field']}
+                  onChange={handleChange}
+                />
+              </p>
               <div>
                 <label
                   htmlFor="name"
